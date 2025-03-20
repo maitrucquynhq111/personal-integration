@@ -1,119 +1,98 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 "use client";
 import React, { useEffect, useState } from "react";
-import { API_URL } from "~app/utils/constants";
+import { API_URL, DATABASE_ID_HISTORY_TABLE } from "~app/utils/constants";
+console.log("🚀 ~ :5 ~ API_URL:", API_URL);
 
 const NotionWorkout = () => {
   const [listExercises, setListExercises] = useState([]);
-  const [exerciseChoose, setExerciseChoose] = useState("");
-  const [exerciseDetail, setExerciseDetail] = useState("");
-  useEffect(() => {
-    const getData = async () => {
-      const response = await fetch(
-        API_URL + "/databases/" + "15db01dbbb89819bb5e2c61d4cfc00b6",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({}),
-        }
-      );
+  const [loading, setLoading] = useState(false);
 
-      const result = await response.json();
-      setListExercises(
-        Array.isArray(result?.data?.results) ? result?.data?.results : []
-      );
-    };
+  useEffect(() => {
     getData();
   }, []);
 
-  const getName = (exercise: any) => {
-    return exercise?.properties?.Name.title[0].plain_text;
+  const getData = async () => {
+    const response = await fetch(
+      API_URL + "/databases/" + DATABASE_ID_HISTORY_TABLE,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          filter: {
+            property: "Notes",
+            rich_text: {
+              contains: "-",
+            },
+          },
+        }),
+      }
+    );
+
+    const result = await response.json();
+    setListExercises(
+      Array.isArray(result?.data?.results) ? result?.data?.results : []
+    );
   };
 
-  const submit = async () => {
-    const data = {
-      parent: {
-        database_id: "15db01dbbb8981e490bdc994ce7c2dde",
-      },
-      properties: {
-        Set: {
-          number: 1,
-        },
-        Exercise: {
-          relation: [{ id: exerciseChoose }],
-        },
-      },
-    };
-    const response = await fetch(API_URL + "/page", {
+  const getNotes = (exercise: any) => {
+    return exercise?.properties?.Notes.title[0].plain_text || "";
+  };
+  const getDate = (exercise: any) => {
+    return exercise?.properties?.Date?.rollup?.array[0]?.date?.start || "";
+  };
+
+  const submit = async (exercise: any) => {
+    setLoading(true);
+    await fetch(API_URL + "/update-exercise-notion", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(data),
+      body: JSON.stringify(exercise),
     });
-    console.log("🚀 ~ submit ~ response:", response);
+    await getData();
+    setLoading(false);
   };
 
   return (
     <div className="min-h-screen bg-gray-100 flex items-center justify-center">
-      <div id="section2" className="p-8 mt-6 lg:mt-0 rounded shadow bg-white">
+      <div id="section2" className="p-8 mt-6 rounded shadow bg-white w-6/12">
         <form>
-          <div className="md:flex mb-6">
-            <div className="md:w-1/3">
-              <label
-                className="block text-gray-600 font-bold md:text-left mb-3 md:mb-0 pr-4"
-                htmlFor="my-select"
+          <div className="mb-6">
+            <label
+              className="block text-black text-2xl font-bold mb-3 pr-4"
+              htmlFor="my-select"
+            >
+              Exercise
+            </label>
+            {listExercises.map((exercise: any, index) => (
+              <div
+                key={`${index}-${exercise?.id}`}
+                className="flex flex-row justify-between border-b border-gray-300 px-4 pb-2"
               >
-                Exercise
-              </label>
-            </div>
-            <div className="md:w-2/3">
-              <select
-                name=""
-                className="form-select block w-full p-2 bg-gray-100 text-black"
-                id="my-select"
-                onChange={(event) => setExerciseChoose(event.target.value)}
-              >
-                {listExercises.map((exercise: any, index) => (
-                  <option key={index} value={exercise.id}>
-                    {getName(exercise)}
-                  </option>
-                ))}
-              </select>
-            </div>
-          </div>
-          <div className="md:flex mb-6">
-            <div className="md:w-1/3">
-              <label
-                className="block text-gray-600 font-bold md:text-left mb-3 md:mb-0 pr-4"
-                htmlFor="my-textfield"
-              >
-                Detail Exercise
-              </label>
-            </div>
-            <div className="md:w-2/3">
-              <input
-                className="form-input block w-full p-2 bg-gray-100 text-black"
-                id="my-textfield"
-                type="text"
-                onChange={(event) => setExerciseDetail(event.target.value)}
-                // value=""
-              />
-            </div>
-          </div>
-          <div className="md:flex md:items-center">
-            <div className="md:w-1/3"></div>
-            <div className="md:w-2/3">
-              <button
-                className="shadow bg-yellow-700 hover:bg-yellow-500 focus:shadow-outline focus:outline-none text-white font-bold py-2 px-4 rounded"
-                type="button"
-                onClick={() => submit()}
-              >
-                Submit
-              </button>
-            </div>
+                <div className="flex flex-col ">
+                  <p className="text-black text-lg font-medium">
+                    {getNotes(exercise)}
+                  </p>
+                  <p className="text-gray-500 text-sm font-medium">
+                    {getDate(exercise)}
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className={loading ? "text-gray-400" : "text-sky-500"}
+                  disabled={loading}
+                  onClick={() => {
+                    submit(exercise);
+                  }}
+                >
+                  Convert
+                </button>
+              </div>
+            ))}
           </div>
         </form>
       </div>
